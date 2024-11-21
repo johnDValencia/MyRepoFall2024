@@ -1,0 +1,7 @@
+"0","# Rename specific columns in the llms dataframe"
+"0","llms <- llms %>%"
+"0","  rename("
+"0","    parameters_bn = `Parameters \n(Bn)`,            # Clean name"
+"0","    tokens_trained_B = `Tokens \ntrained (B)`,     # Clean name"
+"0","    MMLU_Pro = `MMLU\n-Pro`                        # Clean name"
+"0","  )"

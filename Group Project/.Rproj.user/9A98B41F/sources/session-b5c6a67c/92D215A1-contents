@@ -1,0 +1,217 @@
+---
+title: "Group Project - Data Visualization Recreation"
+author: John D. Valencia
+format: pdf
+---
+
+Trying to fix warnings
+
+```{r}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+```{r}
+library(tidyverse)
+library(dplyr)
+library(ggrepel) # For better label placement
+```
+
+Load in dataset
+
+```{r}
+# Load the dataset
+file_path <- "IIB LLMs public (new Oct 2024) - LLMs-for-VZ.csv"
+llms <- read_csv(file_path)
+
+# View the structure and first few rows of the dataset
+str(llms)
+head(llms)
+```
+
+```{r}
+# Rename specific columns in the llms dataframe
+llms <- llms %>%
+  rename(
+    parameters_bn = `Parameters \n(Bn)`,            # Clean name
+    tokens_trained_B = `Tokens \ntrained (B)`,     # Clean name
+    MMLU_Pro = `MMLU\n-Pro`                        # Clean name
+  )
+```
+
+```{r}
+# Clean and prepare data
+llms <- llms %>%
+  filter(!is.na(MMLU), !is.na(year), !is.na(parameters_bn)) %>% # Remove rows with NA in important columns
+  mutate(
+    creator = as.factor(creator), # Convert creator to a factor
+    year = as.numeric(year),
+    MMLU = as.numeric(MMLU),
+    parameters_bn = as.numeric(parameters_bn)
+  )
+```
+
+```{r}
+# Remove rows with NA in the date column and ensure it's numeric
+llms <- llms %>%
+  filter(!is.na(date)) %>%
+  mutate(date = as.numeric(date))
+
+# Summary of date
+summary(llms$date)
+
+# Combine year and month into a Date column (assuming day = 1)
+llms <- llms %>%
+  mutate(
+    date_as_date = as.Date(paste0(year, "-", sprintf("%02d", month), "-01"))
+  )
+```
+
+```{r}
+# Combine month and year into a new column
+llms <- llms %>%
+  mutate(
+    month_year = paste0(year, "-", sprintf("%02d", month)) # Create a "YYYY-MM" format
+  )
+
+# Convert month_year to a factor ordered by chronological appearance
+llms <- llms %>%
+  mutate(
+    month_year = factor(month_year, levels = unique(month_year[order(year, month)]))
+  )
+```
+
+```{r}
+# Check unique year values
+unique(llms$year)
+
+# Check if earlier years have data
+llms %>%
+  filter(year < 2024) %>%
+  select(year, month, month_year) %>%
+  arrange(year, month)
+```
+
+```{r, fig.width=12, fig.height=7}
+# Define x_limit_min and x_breaks for pre-2022 and post-2021 years
+x_limit_min <- as.Date("2019-01-01")
+x_limit_max <- max(llms$date_as_date, na.rm = TRUE)
+all_years_post2021 <- 2022:max(llms$year, na.rm = TRUE)
+x_breaks <- c(as.Date("2021-01-01"), as.Date(paste0(all_years_post2021, "-01-01")))
+x_labels <- c("pre-2022", as.character(all_years_post2021))
+
+
+llms <- llms %>%
+  mutate(
+    source = case_when(
+      `open access` == "YES" ~ "Open",
+      TRUE ~ "Closed"
+    ),
+    date_label = ifelse(date_as_date < as.Date("2022-01-01"), "pre-2022", as.character(year(date_as_date)))
+  )
+
+
+# Plot
+ggplot(llms, aes(x = date_as_date, 
+                 y = MMLU, 
+                 size = parameters_bn, 
+                 color = creator, 
+                 shape = source)) +
+  geom_point(alpha = 0.7) +
+  
+  # Add labels only for models with significance
+  geom_text(
+    data = subset(llms, `force label` == "YES" | (!is.na(Note) & Note != "") | `show only` == "significant models"),
+    aes(label = Model),
+    color = "black",
+    vjust = 1.5,
+    size = 3
+  ) +
+  
+  # Add horizontal benchmark lines
+  geom_hline(yintercept = 70, linetype = "dashed", color = "red") +
+  geom_hline(yintercept = 89.8, linetype = "dashed", color = "blue") +
+  
+   # Adjust y-axis to ensure 100 MMLU is the final mark
+  scale_y_continuous(
+    name = "MMLU Benchmark Score",
+    limits = c(18, 100),  # Set the range from 0 to 100
+    breaks = seq(0, 100, by = 20)  # Customize breaks (0, 20, 40, ..., 100)
+  ) +
+  
+  # Add labels for the benchmark lines
+  annotate("text", 
+           x = x_limit_min, 
+           y = 70, 
+           label = "70+ IDEAL", 
+           hjust = 0, 
+           vjust = 1.5, 
+           color = "red") +
+  annotate("text", 
+           x = x_limit_min, 
+           y = 89.8, 
+           label = "88.9 = human expert", 
+           hjust = 0, 
+           vjust = 1.5, 
+           color = "blue") +
+  
+  # Add a polynomial regression line
+  geom_smooth(
+    aes(group = 1),
+    method = "lm", 
+    formula = y ~ poly(as.numeric(x), 5), # Convert Date to numeric and use degree 5
+    se = FALSE, 
+    color = "black",
+    linetype = "solid",
+    size = 0.5
+  ) +
+  
+  scale_x_date(
+    name = "Year",
+    breaks = x_breaks,
+    labels = x_labels,
+    limits = c(x_limit_min, x_limit_max),
+    expand = expansion(mult = c(0.02, 0.02))
+  ) +
+  
+  scale_shape_manual(
+    values = c("Open" = 18, "Closed" = 16), # Diamonds for Open, Circles for Closed
+    name = "Source"
+  ) +
+  
+  scale_size_continuous(
+    range = c(2, 9),  # Define size range for bubbles
+    labels = c("1B", "10B", "100B", "1T", "10T")  # Customize legend labels
+  ) +
+  labs(
+    title = "Major Large Language Models (LLMs)",
+    subtitle = "Ranked by capabilities, sized by billion parameters used for training",
+    y = "MMLU Benchmark Score",
+    color = "Creator"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "right",
+    legend.title = element_text(size = 10),
+    legend.text = element_text(size = 9),
+    axis.text.x = element_text(angle = 0, hjust = 0.5),
+    plot.title = element_text(hjust = 0.5),
+    plot.subtitle = element_text(hjust = 0.5),
+    axis.title.x = element_text(size = 12),
+    axis.title.y = element_text(size = 12)
+  ) +
+  
+  guides(size = "none") + # Remove size legend
+  annotate("text", 
+           x = x_limit_min, 
+           y = max(llms$MMLU, na.rm = TRUE), 
+           label = "Parameters = Size", 
+           hjust = 0, 
+           vjust = 1, 
+           size = 4, 
+           color = "black")
+
+```
+
+```{r}
+str(llms)
+```

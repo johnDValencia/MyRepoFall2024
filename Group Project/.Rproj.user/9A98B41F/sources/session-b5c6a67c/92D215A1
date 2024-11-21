@@ -1,0 +1,31 @@
+{
+    "id": "92D215A1",
+    "path": "~/Data Science Coursework/Group Project/Group Project.qmd",
+    "project_path": "Group Project.qmd",
+    "type": "quarto_markdown",
+    "hash": "0",
+    "contents": "",
+    "dirty": true,
+    "created": 1732142687431.0,
+    "source_on_save": false,
+    "relative_order": 1,
+    "properties": {
+        "rmdVisualMode": "true",
+        "rmdVisualWrapConfigured": "true",
+        "source_window_id": "",
+        "Source": "Source",
+        "docOutlineVisible": "1",
+        "rmdVisualCollapsedChunks": "",
+        "rmdVisualModeLocation": "2001:2254.666748046875",
+        "cursorPosition": "209,19",
+        "scrollLine": "0"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1732207963,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1732208879072,
+    "read_only": false,
+    "read_only_alternatives": []
+}
